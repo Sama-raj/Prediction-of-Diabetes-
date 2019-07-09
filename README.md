@@ -1,5 +1,5 @@
 # Prediction-of-Diabetes-
-Prediction of diabetes  using logistic regression
+Building a logistic regression model to Prediction diabetes
 
 The dataset is a Diabetes data set which has 768 instances and 9 variables.
 This dataset is available from Kaggle.com/uciml/pima-indians-diabetes-database.
