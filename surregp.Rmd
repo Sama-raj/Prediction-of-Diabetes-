@@ -1,0 +1,524 @@
+---
+title: "Diabetes prediction using logistic regression"
+author:
+- Dhilip Surya Rajendran(S3692260)
+- Rajalakshmi Saravanan (S3695632)
+- Neha Racha Voora()
+date: "June, 09, 2018"
+output:
+  pdf_document:
+fontsize: 24pt
+geometry: margin=1in
+fontfamily: mathpazo
+subtitle: MATH 1312 Project
+documentclass: article
+---
+
+```{r global_options, include=FALSE,echo=FALSE}
+require(knitr)
+opts_chunk$set(warning=FALSE, message=FALSE,echo=FALSE)
+```
+
+
+
+\newpage
+\tableofcontents
+\newpage
+# Introduction
+The dataset that we are using here is a Diabetes data set which has 768 instances and 9 variables.This dataset is available from Kaggle.com/uciml/pima-indians-diabetes-database.
+\newline
+To access the Source This Dataset is originally from the National Institute of Diabetes and Digestive and Kidney Diseases. The aim of this dataset is to diagnostically predict if a patient has diabetes or not, based on certain measurements included in the dataset. All the patients here are females of at least 21 years old of the Pima Indian Heritage. The datasets consist of several medical predictor (independent) variables and one target (dependent) variable,Outcome.
+\newline
+Independent variables include:
+\newline
+1. Pregnancies: Number of times pregnant
+\newline
+2. Glucose: Plasma glucose concentration 2 hours in an oral glucose tolerance test
+\newline
+3. BloodPressure: Diastolic blood pressure (mm Hg)
+\newline
+4. SkinThickness: Triceps skin fold thickness (mm)
+\newline
+5. Insulin: 2-Hour serum insulin (mu U/ml)
+\newline
+6. BMI: Body mass index (weight in kg/ (height in m) ^2)
+\newline
+7. DiabetesPedigreeFunction: Diabetes pedigree function
+\newline
+8. Age: Age (years)
+\newline
+9. Outcome: Class variable (0 or 1) 268 of 768 are 1, the others are 0
+\newline
+Now since the outcome here is 0 or 1 i.e., binary, we will be using Logistic Regression.
+Logistic Regression is one of the regression analyses which is used when the dependent variable is
+binary. It is one of the predictive Analysis. It is used to describe the data and to explain the
+relationship between one dependent variable and other independent variables.
+Using this dataset, we will see which major factors are causing diabetes and conclude for reducing
+the cause of diabetes.
+
+\newpage
+# Methodology
+
+Generalized Linear Model is being used to model the data. In these models the response variable yi is
+assumed to follow an exponential family distribution. Following are the assumptions that we are
+considering:
+
+* The data Y1 ,Y2, ...,Y n are independently distributed, i.e., cases are independent.
+* The dependent variable Yi does NOT need to be normally distributed, but it typically assumes a distribution from an exponential family (e.g. binomial, Poisson, multinomial, normal...).
+* GLM does NOT assume a linear relationship between the dependent variable and the independent variables, but it does assume linear relationship between the transformed
+response in terms of the link function and the explanatory variables; e.g., for binary logistic regression logit(pi) = b0+bX.
+* Independent (explanatory) variables can be even the power terms or some other nonlinear transformations of the original independent variables.
+* The homogeneity of variance does NOT need to be satisfied. In fact, it is not even possible in many cases given the model structure, and overdispersion (when the observed variance is larger than what the model assumes) maybe present.
+* Errors need to be independent but NOT normally distributed.
+* It uses maximum likelihood estimation (MLE) rather than ordinary least squares (OLS) to estimate the parameters, and thus relies on large-sample approximations.
+* Goodness-of-fit measures rely on sufficiently large samples, where a heuristic rule is that not more than 20% of the expected cells counts are less than 5.
+
+The function regTermTest is used to check the significance of each regressor. Here, we check the p-value of each regressor and look for significance. The vif function is used to check the presence of multicollinearity in the model. Using the cook’s distance plot, we check for influential points and remove them for model adequacy. Then we apply our model on the test data and check its accuracy.
+\newline
+At the end we see if our model fits the data well using the deviance function.
+
+\newpage
+# Analysis
+
+Loading The Data
+
+```{r}
+library(lmtest)
+library(readxl)
+library(data.table)
+library(pscl)
+library(car)
+library(lmtest)
+library(survey)
+library(ggplot2)
+library(leaps)
+library(reshape2)
+library(corrgram)
+library(car)
+library(lattice)
+library(ROCR)
+library(dplyr)
+library(broom)
+library(GGally)
+library(MASS)
+
+```
+```{r}
+data1<-read.csv("diabetes.csv")
+dim(data1)
+str(data1)
+```
+
+```{r}
+cor(data1)
+dim(data1)
+```
+
+From the table we see that the highest correlation is between age and pregnancies giving 54.43% of correlation between them.
+
+* The dimension of the data which is 768x9
+
+```{r}
+data1$Outcome<-as.factor(data1$Outcome)
+```
+
+* The factor function is used to create a factor for the outcome rgressor.
+* As the function is of two levels we go for logistic regession taking 70% of the sample size
+
+## Correlation Plot
+```{r echo=FALSE}
+
+ggpairs(data1, aes(color=data1$Outcome, alpha=0.75), lower=list(continuous="smooth"))+ theme_bw()+
+  labs(title="Correlation Plot of Variance(diabetes)")+
+  theme(plot.title=element_text(face='bold',color='black',hjust=0.5,size=12))
+
+```
+
+
+
+
+```{r}
+sample_size = floor(0.7 * nrow(data1))
+set.seed(1729)
+train_set = sample(seq_len(nrow(data1)), size = sample_size)
+training = data1[train_set, ]
+testing = data1[-train_set, ]
+
+```
+```{r }
+model<-glm(Outcome~.,family=binomial(link="logit"),data=training)
+summary(model)
+```
+
+* From the summary we can build the model as:
+* -8.466106 + 0.123768*Pregnancies + 0.038932*Glucose - 0.013923*BloodPressure - 0.001491*SkinThickness
+* - 0.001035*Insulin + 0.087357*BMI + 0.999037*DiabetesPedigreeFunction + 0.007365*Age
+* We also notice that the p-value for regressors Skin Thickness, Insulin and Age are greater than
+* 0.05, hence we can that say these regressors are not significant for the model.
+
+```{r}
+new_data<-data.frame(fitted=model$fitted.values,residuals=model$residuals,Outcome=training$Outcome)
+plot<-ggplot(data=new_data, aes(x=fitted, y=residuals, colour=factor(Outcome)))
+plot + geom_point(size=3)
+```
+
+* A plot for fitted values vs residuals has been plotted for factor variables(Outcome:0,1).
+* From the plot we see that factor with 1 is positive than factor with 0, which states the small difference between actual and predicted values.
+* We also note that there is somewhat linear relationship, and residuals somewhat bounce around the 0 line.
+* We can also say that the variance of error terms are somewhat equal as there is a horizontal band near the 0 line.
+* We can assume the presence of outliers because of the little randomness.
+
+## Model 1
+```{r}
+model1<-glm(Outcome~Insulin+Pregnancies+Glucose+BloodPressure+BMI+DiabetesPedigreeFunction+SkinThickness,data=training,family = binomial(link="logit"))
+summary.glm(model1)
+anova(model1,test = 'Chisq')
+```
+
+*From the summary we can build the model as:
+* -8.361600 + 0.135317*Pregnancies + 0.039663*Glucose - 0.013111*BloodPressure - 0.001071*Insulin + 0.086360*BMI + 1.011307*DiabetesPedigreeFunction - 0.002206*SkinThickness
+* We also notice that the p-value for regressor Insulin and SkinThickness is greater than
+* 0.05, hence we can that say these regressors are not significant for the model.
+
+
+## Model 2
+```{r}
+model2<-glm(Outcome~Insulin+Pregnancies+Glucose+BloodPressure+BMI+DiabetesPedigreeFunction,data=training,family = binomial(link="logit"))
+summary.glm(model2)
+anova(model2,test = 'Chisq')
+```
+
+From the summary we can build the model as:
+
+* -8.3504636 + 0.1358107*Pregnancies + 0.0398501*Glucose - 0.0133912*BloodPressure 
+*  - 0.0011961*Insulin + 0.0849545*BMI + 1.0023900*DiabetesPedigreeFunction
+* We also notice that the p-value for regressor Insulin is greater than
+* 0.05, hence we can that say this regressor is not significant for the model
+
+
+## Model 3
+```{r}
+model.final<-glm(Outcome~Pregnancies+Glucose+BloodPressure+BMI+DiabetesPedigreeFunction,data=training,family = binomial(link="logit"))
+summary.glm(model.final)
+```
+
+
+* From the summary we can build the model as:
+* -8.120378 + 0.139859*Pregnancies + 0.038094*Glucose - * 0.01365006*BloodPressure + 0.081981*BMI + 0.968764*DiabetesPedigreeFunction
+* We also notice that the p-value for all regressors are less than
+0.05, hence we can that say that our model is now significant.
+
+## Perform stepwise variable selection
+```{r}
+step.model <- model %>% stepAIC(direction = "both", trace = TRUE)
+coef(step.model)
+```
+
+* Using the Stepwise Elemination, we get the same output as the final model. 
+* Hence, we will go with this model. Therefore, our final Model is:
+ -8.120378 + 0.139859* Pregnancies + 0.038094 * Glucose - 0.01365006* BloodPressure + 0.081981* BMI + 0.968764 * DiabetesPedigreeFunction
+
+## Testing the significance of individual variables
+```{r}
+regTermTest(model, "Pregnancies")
+regTermTest(model, "Glucose")
+regTermTest(model, "BloodPressure")
+regTermTest(model, "BMI")
+regTermTest(model, "DiabetesPedigreeFunction")
+regTermTest(model, "SkinThickness")
+regTermTest(model, "Insulin")
+regTermTest(model, "Age")
+```
+
+The above tests also confirm that Pregnancies, Glucose, BloodPressure, BMI and DiabetesPedigreeFunction are the significant ones with p-value less than 0.05, hence we can remove the other variables.
+
+
+```{r}
+plot(model.final)
+
+```
+
+### Model Diagnistics and Asumptions
+#### Anva Table
+```{r}
+anova(model.final, test = 'Chisq')
+```
+
+From the Annova Table we see that the p-value of each regressor is less than 0.05,except for BloodPressure hence we can say that there is somewhat insignificant relationship between in the model
+
+#### VIF Test
+```{r}
+vif(model.final)
+```
+
+From the Variance Inflation Factors we see that all the regressors are less than 5 to 10, hence they can be considered significant. As a rule of thumb,a VIF value that exceeds 5 or 10 indicates a problematic amount of collinearity. 
+In our data, there is no collinearity all variables have a value of VIF well below 5.
+
+#### Influential Values
+
+Influential values are extreme individual data points that can alter the quality of the logistic regression model.
+The most extreme values in the data can be examined by visualizing the Cook's distance values. Here we label the top 3 largest values:
+
+```{r}
+plot(model.final, which = 4, id.n = 3)
+```
+
+Note that, not all outliers are influential observations. 
+THence to check influential values the standardized residual error can be computed. Data points with an absolute standardized residuals above 3, represent possible outliers and may need attention.
+
+\newpage
+#Results
+Extract model results are
+```{r}
+model.data1 <- augment(model.final) %>% 
+  mutate(index = 1:n())
+
+model.data1 %>% top_n(3, .cooksd)
+
+```
+The data for the top 3 largest values, according to the Cook's distance, is displayed
+
+## Resdidual Analysis
+```{r}
+ggplot(model.data1, aes(index, .std.resid)) + 
+  geom_point(aes(colour=factor(Outcome)), alpha = .5) +
+  theme_bw()
+```
+Filtering potential influential data points with abs(.std.res) > 3:
+```{r}
+model.data1 %>% 
+  filter(abs(.std.resid) > 3)
+```
+
+There is no more influential points in our data.
+
+```{r}
+gg <- melt(data1)
+ggplot(gg, aes(x=value, fill=variable)) +
+  geom_histogram(binwidth=5)+
+  facet_wrap(~variable)
+```
+
+## Model Accuracy
+```{r }
+preds <- predict(model.final, newdata = testing, type = "response")
+
+prediction_testing = predict(model.final,testing, type = "response")
+prediction_testing = ifelse(prediction_testing > 0.5, 1, 0)
+error = mean(prediction_testing != testing$Outcome)
+print(paste('Model Accuracy',1-error))
+
+```
+
+We see that our model Accuracy is 78%. Hence, we will say that it is a good model.
+
+## ROC Curve
+
+```{r}
+pr = prediction(preds, testing$Outcome)
+prf = performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+abline(a=0,b=1)
+```
+* This plots the false positive rate (FPR) on the x-axis and the true positive rate (TPR) on the y-axis.
+* At every cutoff, the TPR and FPR are calculated and plotted. 
+* The smoother the graph, the more cutoffs the predictions have. 
+* We also plotted a 45-degree line, which represents, on average, the performance of a Uniform(0, 1) random variable.
+* It is better when the diagnol line is farther away.
+* Overall, we see true positive rate, (> 78%), trading off a false positive rate (1- specificity), up until about 25% FPR. 
+* After an FPR of 25%, we don't see significant gains in TPR for a tradeoff of increased FPR.
+
+
+## Area Under Curve Measurement(AUC)  
+
+```{r}
+  auc = performance(pr, measure = "auc")
+  auc = auc@y.values[[1]]
+  print(paste("Model Accuracy", auc))
+```
+
+#We see that our model gives an accuracy of 80% for AUC.
+  
+  
+```{r}
+  deviance(model.final)
+  pchisq(model.final$deviance, df=model.final$df.residual, lower.tail=FALSE)
+```
+
+* H0: the model fits the data well
+* H1: the model does not fit the data well
+* The chi-square test statistic of 497.4318 with 531 degree of freedom gives a p-value of 0.8489873, 
+* Indicating that the null hypothesis is plausible, and we can conclude that logistic model is adequate.
+* The p-value gives the goodness of fit. 
+
+## Residual Deviance
+```{r}
+  1-pchisq(497.43,531)
+```
+
+\newpage
+
+# Conclusion
+
+Hence, we have successfully built a prediction model, using the logistic regression analysis which gives the probability of the patient as diabetic or not depending upon certain information about
+them. The predictors highly affecting were found to be Pregnancies, Glucose, Blood Pressure, BMI, DiabetesPedigreeFunction. We also saw from the summary of the final regression model that these are the variables that are highly significant. We also saw that AIC Values got reduced with the removal of variables from the original Model. The stepwise function also proved the same. Hence
+our final Logistic Regression Model is: -8.120378 + 0.139859*Pregnancies + 0.038094*Glucose -
+0.01365006*Blood Pressure + 0.081981*BMI + 0.968764*DiabetesPedigreeFunction.
+
+\newpage
+# Appendix
+library(lmtest)
+\newline
+library(readxl)
+\newline
+library(data.table)
+\newline
+library(pscl)
+\newline
+library(car)
+\newline
+library(lmtest)
+\newline
+library(survey)
+\newline
+library(ggplot2)
+\newline
+library(leaps)
+\newline
+library(reshape2)
+\newline
+library(corrgram)
+\newline
+library(car)
+\newline
+library(lattice)
+\newline
+library(ROCR)
+\newline
+library(dplyr)
+\newline
+library(broom)
+\newline
+data1<-read.csv(file.choose())
+\newline
+dim(data1)
+\newline
+str(data1)
+\newline
+plot(data1)
+\newline
+cor(data1)
+\newline
+data1$Outcome<-as.factor(data1$Outcome)
+\newline
+dim(data1)
+\newline
+sample_size = floor(0.7 * nrow(data1))
+\newline
+set.seed(1729)
+\newline
+train_set = sample(seq_len(nrow(data1)), size = sample_size)
+\newline
+training = data1[train_set, ]
+\newline
+testing = data1[-train_set, ]
+\newline
+model<-glm(Outcome~.,family=binomial(link="logit"),data=training)
+\newline
+summary(model)
+\newline
+new_data<-data.frame(fitted=model$fitted.values, residuals=model$residuals, Outcome=training$Outcome)
+\newline
+plot<-ggplot(data=new_data, aes(x=fitted, y=residuals, colour=factor(Outcome)))
+\newline
+plot + geom_point(size=3)
+\newline
+model1<-glm(Outcome~Insulin+Pregnancies+Glucose+BloodPressure+BMI+DiabetesPedigreeFunction+SkinThickness,data=training,family = binomial(link="logit"))
+\newline
+summary.glm(model1)
+\newline
+model2<-glm(Outcome~Insulin+Pregnancies+Glucose+BloodPressure+BMI+DiabetesPedigreeFunction,data=training,family = binomial(link="logit"))
+\newline
+summary.glm(model2)
+\newline
+model.final<-glm(Outcome~Pregnancies+Glucose+BloodPressure+BMI+DiabetesPedigreeFunction,data=training,family = binomial(link="logit"))
+\newline
+summary.glm(model.final)
+\newline
+regTermTest(model, "Pregnancies")
+\newline
+regTermTest(model, "Glucose")
+\newline
+regTermTest(model, "BloodPressure")
+\newline
+regTermTest(model, "BMI")
+\newline
+regTermTest(model, "DiabetesPedigreeFunction")
+\newline
+regTermTest(model, "SkinThickness")
+\newline
+regTermTest(model, "Insulin")
+\newline
+regTermTest(model, "Age")
+\newline
+plot(model.final)
+\newline
+anova(model.final, test = 'Chisq')
+\newline
+vif(model.final)
+\newline
+plot(model.final, which = 4, id.n = 3)
+\newline
+model.data1 <- augment(model.final) %>% 
+\newline
+mutate(index = 1:n())
+\newline
+model.data1 %>% top_n(3, .cooksd)
+\newline
+ggplot(model.data1, aes(index, .std.resid)) + 
+\newline
+  geom_point(aes(colour=factor(Outcome)), alpha = .5) +
+  \newline
+  theme_bw()
+  \newline
+model.data1 %>% 
+\newline
+  filter(abs(.std.resid) > 3)
+  \newline
+gg <- melt(data1)
+\newline
+ggplot(gg, aes(x=value, fill=variable)) +
+\newline
+  geom_histogram(binwidth=5)+
+  \newline
+  facet_wrap(~variable)
+  \newline
+preds <- predict(model.final, newdata = testing, type = "response")
+\newline
+prediction_testing = predict(model.final,testing, type = "response")
+\newline
+prediction_testing = ifelse(prediction_testing > 0.5, 1, 0)
+\newline
+error = mean(prediction_testing != testing$Outcome)
+\newline
+print(paste('Model Accuracy',1-error))
+\newline
+pr = prediction(preds, testing$Outcome)
+\newline
+prf = performance(pr, measure = "tpr", x.measure = "fpr")
+\newline
+plot(prf)
+\newline
+  auc = performance(pr, measure = "auc")
+  \newline
+  auc = auc@y.values[[1]]
+  \newline
+  print(paste("Model Accuracy", auc))
+  \newline
+  deviance(model.final)
+  \newline
+  pchisq(model.final$deviance, df=model.final$df.residual, lower.tail=FALSE)
+  \newline
+  1-pchisq(497.43,528)
+
+
